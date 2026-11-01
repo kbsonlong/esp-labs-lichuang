@@ -1,0 +1,12 @@
+[project]
+name = "esp-labs-lichuang"
+version = "0.1.0"
+description = "立创·实战派 ESP32-S3 新手教程（PlatformIO + Arduino，每课一个独立工程）"
+requires-python = ">=3.12"
+dependencies = [
+  # 构建/烧录/监视 CLI。用 `uv run pio ...` 运行，装在本目录的 venv 里，不污染全局。
+  "platformio==6.2.0",
+]
+
+[tool.uv]
+package = false
