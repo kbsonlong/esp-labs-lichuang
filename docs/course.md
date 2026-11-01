@@ -238,6 +238,28 @@ uv run pio run -d labs/05-i2c-scan -t upload -t monitor
 
 ### W 系列 · Wi-Fi 三部曲（建议第一个实现）
 
+#### W1 · 连网与时钟（`labs/wifi-lab-w1`）
+
+**操作命令**：
+
+```sh
+uv run pio run -d labs/wifi-lab-w1 -t upload -t monitor
+```
+
+**交互流程**（无需改任何代码）：
+
+1. 无凭证上电 → 屏幕显示**配网模式**：手机连热点 `esp32-clock-setup`（无密码）
+2. 手机浏览器打开 `192.168.4.1`（多数手机连上会自动弹出）→ 下拉选择你家 Wi-Fi → 输密码 → 保存
+3. 设备自动重启 → 连网 → NTP 对时 → 屏幕变时钟面板（日期 + 大字 `HH:MM:SS` + RSSI 信号条）
+4. **换 Wi-Fi**：长按 BOOT 键 3 秒 → 清除凭证 → 重启回配网模式
+
+**代码走读**：
+
+- `WiFi.softAP()` + `DNS 劫持 + 302 重定向` = **captive portal**：手机连上热点，访问任何网址都会被带到 `192.168.4.1` 配网页。每个 IoT 设备的"第一次开机体验"都是这么做的。
+- `Preferences`（NVS）：`putString` 写进 flash，断电不丢；`prefs.clear()` 一行擦除。
+- `WIFI_AP_STA` 同时开热点和客户端模式——配网时还能顺便扫描周边网络给下拉列表用。
+- `configTzTime("CST-8", "ntp.aliyun.com", ...)`：SNTP 对时。板子没有 RTC 电池，开机永远停在 1970 年；`time(nullptr) > 100000` 秒说明已对上时，用这个技巧防止时钟显示 1970。
+
 | # | 课程 | 你学会 | 新概念 | 依赖 |
 | - | ---- | ------ | ------ | ---- |
 | W1 | 连网与时钟 | 扫描/连接 Wi-Fi，NVS 记住凭证，SNTP 取网络时间，信号强度(RSSI)实时上屏 | WiFiSTA、NVS、UDP | 01-05 ✅ |

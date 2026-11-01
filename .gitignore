@@ -6,5 +6,8 @@ __pycache__/
 # 固件下载缓存（脚本可随时重新下载并校验）
 tools/.cache/
 
+# Wi-Fi 凭证（绝不入库）
+labs/*/src/credentials.h
+
 # macOS
 .DS_Store
