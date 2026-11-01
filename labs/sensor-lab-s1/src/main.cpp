@@ -19,19 +19,25 @@
 
 namespace {
 
-// ---- QMI8658 寄存器（数据手册 Table: Typical Sensor Mode）----
+// ---- QMI8658 寄存器（寄存器表与初始化序列来自立创官方例程 02-attitude）----
 constexpr uint8_t kQmiAddr = 0x6A;         // 板上实测扫描确认的 7 位地址
 constexpr uint8_t kRegWhoAmI = 0x00;       // 芯片 ID
-constexpr uint8_t kWhoAmIValue = 0xFD;     // QMI8658 系列的固定应答
-constexpr uint8_t kRegCtrl1 = 0x02;        // 串口接口：bit5=地址自动递增（I2C 连读必备）
+constexpr uint8_t kWhoAmIValue = 0x05;     // 真机实测：本批 QMI8658 应答 0x05（官方例程同值）
+constexpr uint8_t kRegReset = 0x60;        // 软复位寄存器，写 0xB0 生效
+constexpr uint8_t kRegCtrl1 = 0x02;        // 串口接口：bit6=地址自动递增（I2C 连读必备）
 constexpr uint8_t kRegCtrl2 = 0x03;        // 加速度计：[6:4]量程 [3:0]ODR
-constexpr uint8_t kRegCtrl7 = 0x08;        // 传感器总开关：bit1=aEN 加速度计使能
+constexpr uint8_t kRegCtrl3 = 0x04;        // 陀螺仪：[6:4]量程 [3:0]ODR
+constexpr uint8_t kRegCtrl7 = 0x08;        // 传感器总开关：bit0=gEN bit1=aEN
 constexpr uint8_t kRegAccelXLow = 0x35;    // 加速度输出数据块起始寄存器
 constexpr uint8_t kAccelFsG = 4;           // 量程 ±4g
 constexpr float kLsbPerG = 32768.0f / kAccelFsG;  // = 8192 LSB/g
 
-// CTRL2 = 0x23：量程 001(±4g) + ODR 0011（加速度计约 250Hz 档）
-constexpr uint8_t kCtrl2Accel4g = 0x23;
+// 官方例程的初始化值：CTRL1 开地址自增；CTRL7 加速度+陀螺仪都开；
+// CTRL2=0x95 即 ±4g @ 250Hz；CTRL3=0xd5 即 512dps @ 250Hz。
+constexpr uint8_t kCtrl1AutoInc = 0x40;
+constexpr uint8_t kCtrl7AccGyro = 0x03;
+constexpr uint8_t kCtrl2Accel4g250Hz = 0x95;
+constexpr uint8_t kCtrl3Gyro512dps250Hz = 0xD5;
 
 // ---- 屏驱动（同 W2，真机验证过的模板）----
 class LGFX : public lgfx::LGFX_Device {
@@ -131,10 +137,14 @@ bool initQmi8658() {
     return false;
   }
   Serial.printf("[QMI8658] WHO_AM_I=0x%02X OK\n", id);
-  writeReg(kRegCtrl1, 0x60);           // 地址自动递增，I2C 连读数据块
-  writeReg(kRegCtrl2, kCtrl2Accel4g);  // 加速度计 ±4g
-  writeReg(kRegCtrl7, 0x02);           // 只使能加速度计（bit1 aEN）
-  delay(10);                           // 等传感器起振出数
+  // 初始化序列与立创官方例程 02-attitude 逐字节一致：
+  writeReg(kRegReset, 0xB0);               // 软复位
+  delay(15);                               // 复位后等芯片就绪
+  writeReg(kRegCtrl1, kCtrl1AutoInc);      // 地址自动递增（连读数据块必备）
+  writeReg(kRegCtrl7, kCtrl7AccGyro);      // 使能加速度计 + 陀螺仪
+  writeReg(kRegCtrl2, kCtrl2Accel4g250Hz);
+  writeReg(kRegCtrl3, kCtrl3Gyro512dps250Hz);
+  delay(25);                               // 等传感器起振出数
   return true;
 }
 
