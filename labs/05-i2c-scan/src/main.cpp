@@ -17,7 +17,7 @@
 
 namespace {
 
-// 已知设备小词典：地址 -> 它是谁。
+// 已知设备小词典：地址 -> 它是谁。（器件清单来自立创官方 wiki）
 struct Device {
   uint8_t addr;
   const char *name;
@@ -25,8 +25,9 @@ struct Device {
 constexpr Device kKnown[] = {
     {0x18, "ES8311 音频DAC"},
     {0x19, "PCA9557 IO扩展器"},
-    {0x38, "FT5x06 触摸"},
+    {0x38, "FT6336 触摸"},
     {0x41, "ES7210 音频ADC"},
+    {0x6A, "QMI8658 姿态传感器"},
 };
 
 const char *describe(uint8_t addr) {
