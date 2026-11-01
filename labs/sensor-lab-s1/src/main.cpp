@@ -177,9 +177,9 @@ void drawLevel(const Accel &a) {
   }
 
   // 把水平分量压到 [-1,1] 再乘半径。系数取负：气泡往"翘起的那一侧"跑。
-  // UNVERIFIED: 待真机确认——若气泡方向与倾斜方向相反，把 ax/ay 前的负号去掉即可。
-  int bx = cx - static_cast<int>(a.x * kR);
-  int by = cy - static_cast<int>(a.y * kR);
+  // 真机验收（2026-11）：传感器贴装相对屏幕旋转了 90°——水平方向用 Y、竖直方向用 X。
+  int bx = cx - static_cast<int>(a.y * kR);
+  int by = cy - static_cast<int>(a.x * kR);
   // 限制在环内
   const int dx = bx - cx, dy = by - cy;
   const int distSq = dx * dx + dy * dy;
