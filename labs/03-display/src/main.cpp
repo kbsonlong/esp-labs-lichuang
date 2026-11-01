@@ -47,9 +47,14 @@ void drawColorBars() {
 
 void setup() {
   Serial.begin(115200);
-  delay(1500);
+  // 等 USB 串口真正连上再打印，避免输出在主机重新枚举期间丢失。
+  while (!Serial && millis() < 10000) delay(10);
   Serial.println();
   Serial.println("=== 第 03 课：点亮屏幕 ===");
+
+  // BOOT 键要轮询（调背光），必须先初始化成输入上拉；
+  // 漏了这行，digitalRead 会刷 "IO 0 is not set as GPIO" 警告。
+  pinMode(PIN_BOOT_BTN, INPUT_PULLUP);
 
   // 背光先点亮，能看到屏从黑到亮的过程。
   pinMode(PIN_TFT_BL, OUTPUT);
