@@ -60,17 +60,27 @@ void printIdentityCard() {
 
 void setup() {
   // WS2812 上电瞬间可能闪一下杂色，先固定为灭。
-  neopixelWrite(PIN_RGB, 0, 0, 0);
+  rgbLedWrite(PIN_RGB, 0, 0, 0);
 
   Serial.begin(115200);
-  // 给串口芯片一点时间起来，否则开头几行日志会丢。
-  delay(1500);
   Serial.println();
   Serial.println("=== 第 01 课：认识板子 ===");
-  printIdentityCard();
+  Serial.println("打开监视器后按 <回车>，打印芯片身份卡。");
 }
 
 void loop() {
+  // 串口收到回车 -> 重打身份卡。S3 原生 USB 的输出在主机重新枚举前会丢，
+  // 所以"按回车重打"比只在 setup 里打一次可靠——任何时候打开监视器都能拿到。
+  static uint32_t lastCardAt = 0;
+  while (Serial.available()) {
+    const char c = static_cast<char>(Serial.read());
+    if ((c == '\n' || c == '\r') && millis() - lastCardAt > 200) {
+      // 200ms 去抖：一次回车常被终端拆成 \r\n 两个字符，只算一次。
+      lastCardAt = millis();
+      printIdentityCard();
+    }
+  }
+
   static uint32_t lastBeat = 0;
   static uint8_t pos = 0;
 
@@ -81,7 +91,7 @@ void loop() {
     pos++;
     uint8_t r, g, b;
     wheel(pos, r, g, b);
-    neopixelWrite(PIN_RGB, r * kBrightness / 255, g * kBrightness / 255, b * kBrightness / 255);
+    rgbLedWrite(PIN_RGB, r * kBrightness / 255, g * kBrightness / 255, b * kBrightness / 255);
   }
 
   // 心跳日志：证明 loop 还在跑，也方便确认串口没断。

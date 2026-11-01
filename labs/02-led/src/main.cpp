@@ -26,7 +26,7 @@ constexpr uint8_t kMaxBrightness = 60;  // 0-255，护眼上限。
 
 // 把 (r,g,b) 乘上 0-255 的亮度系数后输出。
 void show(uint8_t r, uint8_t g, uint8_t b, uint8_t scale) {
-  neopixelWrite(PIN_RGB, r * scale / 255 * kMaxBrightness / 255,
+  rgbLedWrite(PIN_RGB, r * scale / 255 * kMaxBrightness / 255,
                 g * scale / 255 * kMaxBrightness / 255,
                 b * scale / 255 * kMaxBrightness / 255);
 }
@@ -67,10 +67,11 @@ void renderBlink(uint32_t now) {
 }  // namespace
 
 void setup() {
-  neopixelWrite(PIN_RGB, 0, 0, 0);
+  rgbLedWrite(PIN_RGB, 0, 0, 0);
   pinMode(PIN_BOOT_BTN, INPUT_PULLUP);  // 按下读 LOW；上拉保证悬空时稳定读 HIGH。
   Serial.begin(115200);
-  delay(1500);
+  // 等 USB 串口真正连上再打印，避免输出在主机重新枚举期间丢失。
+  while (!Serial && millis() < 10000) delay(10);
   Serial.println();
   Serial.println("=== 第 02 课：灯光状态机 ===");
   Serial.printf("当前模式：%s。按 BOOT 键切换。\n", modeName(g_mode));

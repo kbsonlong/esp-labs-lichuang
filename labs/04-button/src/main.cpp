@@ -41,7 +41,7 @@ const uint8_t kColors[][3] = {{255, 40, 40}, {40, 255, 60}, {60, 80, 255}, {255,
 constexpr uint8_t kNumColors = sizeof(kColors) / sizeof(kColors[0]);
 
 void showColor(uint8_t idx) {
-  neopixelWrite(PIN_RGB, kColors[idx][0], kColors[idx][1], kColors[idx][2]);
+  rgbLedWrite(PIN_RGB, kColors[idx][0], kColors[idx][1], kColors[idx][2]);
 }
 
 bool g_backlightOn = true;
@@ -69,9 +69,10 @@ void logEvent(const char *fmt, ...) {  // 屏幕滚动事件流（简化版：�
 }  // namespace
 
 void setup() {
-  neopixelWrite(PIN_RGB, 0, 0, 0);
+  rgbLedWrite(PIN_RGB, 0, 0, 0);
   Serial.begin(115200);
-  delay(1500);
+  // 等 USB 串口真正连上再打印，避免输出在主机重新枚举期间丢失。
+  while (!Serial && millis() < 10000) delay(10);
   Serial.println();
   Serial.println("=== 第 04 课：把按键做对 ===");
 

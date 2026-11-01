@@ -63,7 +63,8 @@ void scanBus() {
 
 void setup() {
   Serial.begin(115200);
-  delay(1500);
+  // 等 USB 串口真正连上再打印，避免输出在主机重新枚举期间丢失。
+  while (!Serial && millis() < 10000) delay(10);
   Serial.println();
   Serial.println("=== 第 05 课：I2C 总线扫描 ===");
 
