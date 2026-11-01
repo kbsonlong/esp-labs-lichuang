@@ -6,13 +6,33 @@
 // 3. 长按/短按：按下时刻 + 松开时刻一对比就出来了。
 //
 // 现象：短按换 LED 颜色，长按（>=800ms）开关背光，屏幕实时显示事件流。
-// 屏幕驱动与第 03 课相同：LovyanGFX + SPI mode 2（Adafruit mode 0 不亮，见第 03 课）。
+// 屏幕驱动与第 03 课相同：LovyanGFX + SPI mode 0，用屏前先驱动 PCA9557 拉低 CS
+// （否则屏全黑，见第 03 课）。
 #include <Arduino.h>
 #include <LovyanGFX.hpp>
+#include <Wire.h>
 
 #include "pins.h"
 
 namespace {
+
+// LCD_CS 在 PCA9557 IO 扩展器手里（bit0，低电平选中）——用屏前必须先驱动它，
+// 否则屏全黑。详见第 03 课的 initIoExpander 讲解。
+void initIoExpander() {
+  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  Wire.beginTransmission(0x19);
+  Wire.write(0x01);
+  Wire.write(0x03);
+  Wire.endTransmission();
+  Wire.beginTransmission(0x19);
+  Wire.write(0x03);
+  Wire.write(0xF8);
+  Wire.endTransmission();
+  Wire.beginTransmission(0x19);
+  Wire.write(0x01);
+  Wire.write(0x02);  // LCD_CS 拉低（选中屏幕）
+  Wire.endTransmission();
+}
 
 // 与第 03 课相同的屏配置（lesson 04 只把它当输出终端用，不展开讲）。
 class LGFX : public lgfx::LGFX_Device {
@@ -24,7 +44,7 @@ class LGFX : public lgfx::LGFX_Device {
     {
       auto cfg = _bus.config();
       cfg.spi_host = SPI3_HOST;
-      cfg.spi_mode = 2;             // 官方固件实测 mode 2
+      cfg.spi_mode = 0;             // 真机穷举实测：mode 0 可用
       cfg.freq_write = 40000000;
       cfg.freq_read = 16000000;
       cfg.spi_3wire = false;
@@ -128,6 +148,8 @@ void setup() {
   ledcAttach(PIN_TFT_BL, 5000, 8);
   ledcWrite(PIN_TFT_BL, 175);
 
+  // 先让扩展器选中屏幕，再初始化屏（顺序不能反）。
+  initIoExpander();
   tft.init();
   tft.setRotation(1);
   tft.fillScreen(0x0000);

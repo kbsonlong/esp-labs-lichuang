@@ -29,9 +29,12 @@
 #define PIN_BOOT_BTN 0
 #endif
 
-// 课程 03：板载 2.0" IPS 屏，320x240，ST7789 驱动，SPI3。
-// 引脚来自 xiaozhi lichuang_dev_board.cc：
-//   mosi=40, sclk=41, dc=39；CS 板内直接接地（固件里 CS=NC），RST 与供电复位共用。
+// 板载 2.0" IPS 屏，320x240，ST7789 驱动，SPI3。
+// 引脚来自官方固件与 wiki：
+//   mosi=40, sclk=41, dc=39；RST 与整板复位共用。
+//   CS 特殊：由 I2C 扩展芯片 PCA9557(0x19) 的 bit0 控制（低电平选中）！
+//   用屏前必须初始化扩展器并拉低 CS，否则屏全黑——各课程里的 initIoExpander()
+//   就是干这个的。库层 pin_cs = -1（不管理 CS 引脚）。
 #ifndef PIN_TFT_MOSI
 #define PIN_TFT_MOSI 40
 #endif
@@ -41,7 +44,7 @@
 #ifndef PIN_TFT_DC
 #define PIN_TFT_DC 39
 #endif
-// CS 已接地：库层传 -1 = 不管理 CS，正配硬件。
+// CS 由 PCA9557 IO 扩展器控制（低有效），库层不管理 CS 引脚。
 #ifndef PIN_TFT_CS
 #define PIN_TFT_CS -1
 #endif

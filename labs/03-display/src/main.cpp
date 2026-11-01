@@ -3,19 +3,39 @@
 //
 // 这一课学：
 // 1. SPI 四条线的分工：SCLK 时钟、MOSI 数据、DC 命令/数据切换、背光。
-//    （CS 在这块板上直接接地，所以配置里 pin_cs = -1 = 永远选中。）
 // 2. RGB565：一个像素 16bit——红 5 位、绿 6 位、蓝 5 位（人眼对绿色最敏感，所以多 1 位）。
 // 3. 背光不是 SPI 的一部分：GPIO42 单独 PWM 调光，且这块板低电平点亮（倒极性）。
-// 4. 为什么用 LovyanGFX：官方固件（xiaozhi）这块屏跑 SPI mode 2，Adafruit 库写死
-//    mode 0——真机实测屏不显示。总线细节对不上，屏就沉默。
+// 4. 隐藏关卡：LCD_CS 不在 ESP32 手里，在 I2C 扩展芯片 PCA9557 的 bit0 上！
+//    不驱动扩展器、不把 CS 拉低，SPI 配得再对屏也是黑的。官方规则：
+//    "CS 拉低必须放在复位之后、初始化之前，否则液晶屏无法显示。"
 //
 // 现象：彩条 + 文字 + 每秒刷新的帧率计。按 BOOT 键切换亮度。
 #include <Arduino.h>
 #include <LovyanGFX.hpp>
+#include <Wire.h>
 
 #include "pins.h"
 
 namespace {
+
+// 驱动 IO 扩展器 PCA9557（I2C 0x19），并把 LCD_CS 拉低。
+// bit0 = LCD_CS（低电平选中）  bit1 = PA_EN（功放）  bit2 = DVP_PWDN（摄像头）
+// 配置值与官方固件逐字节一致：output=0x03, config=0xF8（bit0-2 输出），最后 CS 拉低。
+void initIoExpander() {
+  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  Wire.beginTransmission(0x19);
+  Wire.write(0x01);
+  Wire.write(0x03);  // 输出寄存器：bit0=1 bit1=1 bit2=0
+  Wire.endTransmission();
+  Wire.beginTransmission(0x19);
+  Wire.write(0x03);
+  Wire.write(0xF8);  // 方向寄存器：bit0-2 设为输出
+  Wire.endTransmission();
+  Wire.beginTransmission(0x19);
+  Wire.write(0x01);
+  Wire.write(0x02);  // bit0 -> 0：LCD_CS 拉低（选中屏幕），屏幕初始化前必做
+  Wire.endTransmission();
+}
 
 // 把实战派的屏配置固定成一个类：引脚、SPI 模式、面板参数，一处写清。
 class LGFX : public lgfx::LGFX_Device {
@@ -28,7 +48,7 @@ class LGFX : public lgfx::LGFX_Device {
     {
       auto cfg = _bus.config();
       cfg.spi_host = SPI3_HOST;     // 官方固件用的同一路硬件 SPI
-      cfg.spi_mode = 2;             // 关键！官方固件实测 mode 2，mode 0 不亮
+      cfg.spi_mode = 0;             // 真机穷举实测：mode 0 可用
       cfg.freq_write = 40000000;    // 40MHz 写入
       cfg.freq_read = 16000000;
       cfg.spi_3wire = false;
@@ -45,7 +65,7 @@ class LGFX : public lgfx::LGFX_Device {
     // ---- 面板：这块屏的"身份证" ----
     {
       auto cfg = _panel.config();
-      cfg.pin_cs = PIN_TFT_CS;      // -1：板内 CS 直接接地
+      cfg.pin_cs = PIN_TFT_CS;      // -1：CS 由 PCA9557 控制（见 initIoExpander）
       cfg.pin_rst = PIN_TFT_RST;    // -1：复位与整板复位共用
       cfg.pin_busy = -1;
       cfg.panel_width = 240;        // 原生 240x320，横屏用 setRotation 转
@@ -56,7 +76,7 @@ class LGFX : public lgfx::LGFX_Device {
       cfg.dummy_read_pixel = 8;
       cfg.dummy_read_bits = 1;
       cfg.readable = false;         // 不回读像素
-      cfg.invert = true;            // ST7789 必须反显，否则黑白颠倒
+      cfg.invert = true;            // 真机穷举实测：必须反显，否则黑白颠倒
       cfg.rgb_order = false;
       cfg.dlen_16bit = false;
       _panel.config(cfg);
@@ -102,6 +122,9 @@ void setup() {
   // BOOT 键要轮询（调背光），必须先初始化成输入上拉；
   // 漏了这行，digitalRead 会刷 "IO 0 is not set as GPIO" 警告。
   pinMode(PIN_BOOT_BTN, INPUT_PULLUP);
+
+  // 顺序很重要：先让扩展器选中屏幕，再初始化屏。
+  initIoExpander();
 
   // 背光先点亮，能看到屏从黑到亮的过程。
   pinMode(PIN_TFT_BL, OUTPUT);
