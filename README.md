@@ -34,7 +34,7 @@ macOS 提示：板子插 hub 可能每几秒闪断，**直插 Mac 本机端口**
 | 04 | 把按键做对 | `labs/04-button` | 中断、消抖、长按/短按 |
 | 05 | I2C 总线扫描 | `labs/05-i2c-scan` | I2C 协议、地址、探测板载外设 |
 
-规划中（进阶篇，设计已定稿见 [docs/course.md](docs/course.md)）：W1-W3 Wi-Fi、S1-S3 板载传感器、A1-A3 音频、C1-C2 摄像头、B1-B2 蓝牙。
+规划中：进阶篇 13 课（设计定稿）+ 系统篇 4 课 + 实战篇 3 项目，见 [docs/course.md](docs/course.md)。已完成：基础篇 5/5 ✅、W1 ✅、W2 ✅。
 
 ## 板卡引脚速查
 
