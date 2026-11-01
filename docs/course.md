@@ -260,10 +260,27 @@ uv run pio run -d labs/wifi-lab-w1 -t upload -t monitor
 - `WIFI_AP_STA` 同时开热点和客户端模式——配网时还能顺便扫描周边网络给下拉列表用。
 - `configTzTime("CST-8", "ntp.aliyun.com", ...)`：SNTP 对时。板子没有 RTC 电池，开机永远停在 1970 年；`time(nullptr) > 100000` 秒说明已对上时，用这个技巧防止时钟显示 1970。
 
+#### W2 · 天气站（`labs/wifi-lab-w2`）
+
+**操作命令**：
+
+```sh
+uv run pio run -d labs/wifi-lab-w2 -t upload -t monitor
+```
+
+前提：W1 已配过网（凭证在 NVS 里直接沿用）。现象：屏幕上部时间 + 右上角信号值，中间**大字温度**，下方天气现象/湿度/风速，每 10 分钟自动刷新。
+
+**代码走读**：
+
+- 天气源 **Open-Meteo**：免费、无需 API key、国内直连。坐标在文件顶部 `kLat`/`kLon` 两行，改了就换城市。
+- `WiFiClientSecure::setInsecure()`：跳过 TLS 证书校验。课程图省事；**正式产品必须校验 CA**，否则任何人都能冒充天气服务器。
+- **JSON 过滤器**：API 返回几 KB，`JsonDocument filter` 声明只要 4 个字段，解析器跳过其余——内存占用省一个量级。这是 ESP32 上调外部 API 的标准姿势。
+- **限速礼貌**：免费 API 10 分钟取一次足够；两次请求之间屏幕照常每秒刷新（天气是缓存）。
+
 | # | 课程 | 你学会 | 新概念 | 依赖 |
 | - | ---- | ------ | ------ | ---- |
 | W1 | 连网与时钟 | 扫描/连接 Wi-Fi，NVS 记住凭证，SNTP 取网络时间，信号强度(RSSI)实时上屏 | WiFiSTA、NVS、UDP | 01-05 ✅ |
-| W2 | 天气站 | HTTPS GET + ArduinoJson 解析，把天气和 NTP 时间排版上屏 | HTTPClient、JSON、TLS 证书 | W1 |
+| W2 | 天气站 | HTTPS GET + ArduinoJson 解析，把天气和 NTP 时间排版上屏 | HTTPClient、JSON、TLS 证书 | W1 ✅ |
 | W3 | 手机遥控 | 板起 HTTP+WebSocket 服务，手机浏览器实时控制背光/LED、看姿态数据 | AsyncWebServer、WebSocket、mDNS | W1, S1 |
 
 ### S 系列 · 板载传感器（I2C 五设备全在线 ✅）
