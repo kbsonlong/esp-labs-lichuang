@@ -60,7 +60,7 @@ void logEvent(const char *fmt, ...) {  // 屏幕滚动事件流（简化版：�
   for (uint8_t i = 0; i < 5; i++) {
     const uint8_t line = (head + i) % 5;
     tft.setCursor(8, 100 + i * 24);
-    tft.setTextColor(i == 4 ? ST77XX_GREEN : ST77XX_DARKGREY);
+    tft.setTextColor(i == 4 ? ST77XX_GREEN : 0x7BEF);  // 0x7BEF = 暗灰 (RGB565)
     tft.setTextSize(2);
     tft.print(lines[line]);
   }
