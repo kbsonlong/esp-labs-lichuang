@@ -6,16 +6,60 @@
 // 3. 长按/短按：按下时刻 + 松开时刻一对比就出来了。
 //
 // 现象：短按换 LED 颜色，长按（>=800ms）开关背光，屏幕实时显示事件流。
+// 屏幕驱动与第 03 课相同：LovyanGFX + SPI mode 2（Adafruit mode 0 不亮，见第 03 课）。
 #include <Arduino.h>
-#include <Adafruit_ST7789.h>
-#include <SPI.h>
+#include <LovyanGFX.hpp>
 
 #include "pins.h"
 
 namespace {
 
-SPIClass spi(FSPI);
-Adafruit_ST7789 tft(&spi, PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
+// 与第 03 课相同的屏配置（lesson 04 只把它当输出终端用，不展开讲）。
+class LGFX : public lgfx::LGFX_Device {
+  lgfx::Panel_ST7789 _panel;
+  lgfx::Bus_SPI _bus;
+
+ public:
+  LGFX() {
+    {
+      auto cfg = _bus.config();
+      cfg.spi_host = SPI3_HOST;
+      cfg.spi_mode = 2;             // 官方固件实测 mode 2
+      cfg.freq_write = 40000000;
+      cfg.freq_read = 16000000;
+      cfg.spi_3wire = false;
+      cfg.use_lock = true;
+      cfg.dma_channel = SPI_DMA_CH_AUTO;
+      cfg.pin_sclk = PIN_TFT_SCLK;
+      cfg.pin_mosi = PIN_TFT_MOSI;
+      cfg.pin_miso = -1;
+      cfg.pin_dc = PIN_TFT_DC;
+      _bus.config(cfg);
+    }
+    _panel.setBus(&_bus);
+    {
+      auto cfg = _panel.config();
+      cfg.pin_cs = PIN_TFT_CS;
+      cfg.pin_rst = PIN_TFT_RST;
+      cfg.pin_busy = -1;
+      cfg.panel_width = 240;
+      cfg.panel_height = 320;
+      cfg.offset_x = 0;
+      cfg.offset_y = 0;
+      cfg.offset_rotation = 0;
+      cfg.dummy_read_pixel = 8;
+      cfg.dummy_read_bits = 1;
+      cfg.readable = false;
+      cfg.invert = true;
+      cfg.rgb_order = false;
+      cfg.dlen_16bit = false;
+      _panel.config(cfg);
+    }
+    setPanel(&_panel);
+  }
+};
+
+LGFX tft;
 
 // ---- 中断与 loop 之间共享的变量必须是 volatile ----
 volatile uint32_t g_pressedAt = 0;     // 按下时刻（ISR 记录）
@@ -56,11 +100,11 @@ void logEvent(const char *fmt, ...) {  // 屏幕滚动事件流（简化版：�
   va_end(args);
   head = (head + 1) % 5;
 
-  tft.fillRect(0, 96, tft.width(), tft.height() - 96, ST77XX_BLACK);
+  tft.fillRect(0, 96, tft.width(), tft.height() - 96, 0x0000);
   for (uint8_t i = 0; i < 5; i++) {
     const uint8_t line = (head + i) % 5;
     tft.setCursor(8, 100 + i * 24);
-    tft.setTextColor(i == 4 ? ST77XX_GREEN : 0x7BEF);  // 0x7BEF = 暗灰 (RGB565)
+    tft.setTextColor(i == 4 ? 0x07E0 : 0x7BEF);  // 最新一条绿色，历史暗灰 (RGB565)
     tft.setTextSize(2);
     tft.print(lines[line]);
   }
@@ -84,11 +128,10 @@ void setup() {
   ledcAttach(PIN_TFT_BL, 5000, 8);
   ledcWrite(PIN_TFT_BL, 175);
 
-  spi.begin(PIN_TFT_SCLK, -1, PIN_TFT_MOSI, -1);
-  tft.init(TFT_WIDTH, TFT_HEIGHT);
+  tft.init();
   tft.setRotation(1);
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextColor(ST77XX_WHITE);
+  tft.fillScreen(0x0000);
+  tft.setTextColor(0xFFFF);
   tft.setTextSize(2);
   tft.setCursor(8, 8);
   tft.print("按键实验");

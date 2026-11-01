@@ -3,25 +3,72 @@
 //
 // 这一课学：
 // 1. SPI 四条线的分工：SCLK 时钟、MOSI 数据、DC 命令/数据切换、背光。
-//    （CS 在这块板上直接接地，所以库里传 -1 = 永远选中。）
+//    （CS 在这块板上直接接地，所以配置里 pin_cs = -1 = 永远选中。）
 // 2. RGB565：一个像素 16bit——红 5 位、绿 6 位、蓝 5 位（人眼对绿色最敏感，所以多 1 位）。
 // 3. 背光不是 SPI 的一部分：GPIO42 单独 PWM 调光，且这块板低电平点亮（倒极性）。
+// 4. 为什么用 LovyanGFX：官方固件（xiaozhi）这块屏跑 SPI mode 2，Adafruit 库写死
+//    mode 0——真机实测屏不显示。总线细节对不上，屏就沉默。
 //
 // 现象：彩条 + 文字 + 每秒刷新的帧率计。按 BOOT 键切换亮度。
 #include <Arduino.h>
-#include <Adafruit_ST7789.h>
-#include <SPI.h>
+#include <LovyanGFX.hpp>
 
 #include "pins.h"
 
 namespace {
 
-SPIClass spi(FSPI);           // S3 的原生 SPI2（FSPI），速度最快的硬件外设。
-Adafruit_ST7789 tft(&spi, PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
+// 把实战派的屏配置固定成一个类：引脚、SPI 模式、面板参数，一处写清。
+class LGFX : public lgfx::LGFX_Device {
+  lgfx::Panel_ST7789 _panel;
+  lgfx::Bus_SPI _bus;
 
-constexpr uint8_t kBacklightCh = 0;     // LEDC 通道随便挑一个。
+ public:
+  LGFX() {
+    // ---- 总线：SPI 的"线"和"节奏" ----
+    {
+      auto cfg = _bus.config();
+      cfg.spi_host = SPI3_HOST;     // 官方固件用的同一路硬件 SPI
+      cfg.spi_mode = 2;             // 关键！官方固件实测 mode 2，mode 0 不亮
+      cfg.freq_write = 40000000;    // 40MHz 写入
+      cfg.freq_read = 16000000;
+      cfg.spi_3wire = false;
+      cfg.use_lock = true;
+      cfg.dma_channel = SPI_DMA_CH_AUTO;
+      cfg.pin_sclk = PIN_TFT_SCLK;  // 41
+      cfg.pin_mosi = PIN_TFT_MOSI;  // 40
+      cfg.pin_miso = -1;            // 屏只进不出
+      cfg.pin_dc = PIN_TFT_DC;      // 39
+      _bus.config(cfg);
+    }
+    _panel.setBus(&_bus);
+
+    // ---- 面板：这块屏的"身份证" ----
+    {
+      auto cfg = _panel.config();
+      cfg.pin_cs = PIN_TFT_CS;      // -1：板内 CS 直接接地
+      cfg.pin_rst = PIN_TFT_RST;    // -1：复位与整板复位共用
+      cfg.pin_busy = -1;
+      cfg.panel_width = 240;        // 原生 240x320，横屏用 setRotation 转
+      cfg.panel_height = 320;
+      cfg.offset_x = 0;
+      cfg.offset_y = 0;
+      cfg.offset_rotation = 0;
+      cfg.dummy_read_pixel = 8;
+      cfg.dummy_read_bits = 1;
+      cfg.readable = false;         // 不回读像素
+      cfg.invert = true;            // ST7789 必须反显，否则黑白颠倒
+      cfg.rgb_order = false;
+      cfg.dlen_16bit = false;
+      _panel.config(cfg);
+    }
+    setPanel(&_panel);
+  }
+};
+
+LGFX tft;
+
 constexpr uint32_t kBacklightFreq = 5000;
-constexpr uint8_t kBacklightRes = 8;    // 8bit：0-255
+constexpr uint8_t kBacklightRes = 8;  // 8bit：0-255
 
 // 亮度 0-255（人话方向：越大越亮），内部翻转成倒极性 PWM。
 void setBacklight(uint8_t brightness) {
@@ -61,11 +108,10 @@ void setup() {
   ledcAttach(PIN_TFT_BL, kBacklightFreq, kBacklightRes);
   setBacklight(80);
 
-  // 显式把 SPI 走到实战派的引脚上（MOSI=40, SCLK=41；MISO 屏不需要）。
-  spi.begin(PIN_TFT_SCLK, -1, PIN_TFT_MOSI, -1);
-  tft.init(TFT_WIDTH, TFT_HEIGHT);  // 原生 240x320
-  tft.setRotation(1);               // 横屏：320 宽 x 240 高
-  tft.fillScreen(ST77XX_BLACK);
+  // LGFX 初始化包含总线 + 面板全套命令。
+  tft.init();
+  tft.setRotation(1);  // 横屏：320 宽 x 240 高
+  tft.fillScreen(0x0000);
 
   log_i("屏幕就绪：%dx%d", tft.width(), tft.height());
 }
@@ -77,15 +123,15 @@ void loop() {
   static uint8_t brightnessIdx = 1;
   static uint32_t lastPress = 0;
 
-  // 每帧：重画彩条 + 文字。整屏 fill 都能跑出高帧率，这就是 DMA 加持的硬件 SPI。
+  // 每帧：重画彩条 + 文字。
   drawColorBars();
-  tft.fillRect(0, tft.height() / 2, tft.width(), tft.height() / 2, ST77XX_BLACK);
+  tft.fillRect(0, tft.height() / 2, tft.width(), tft.height() / 2, 0x0000);
   tft.setCursor(8, tft.height() / 2 + 8);
-  tft.setTextColor(ST77XX_CYAN);
+  tft.setTextColor(rgb565(0, 255, 255));
   tft.setTextSize(2);
   tft.println("Hello, lichuang!");
   tft.setCursor(8, tft.height() / 2 + 40);
-  tft.setTextColor(ST77XX_YELLOW);
+  tft.setTextColor(rgb565(255, 255, 0));
   tft.printf("uptime %lus", static_cast<unsigned long>(millis() / 1000));
 
   frames++;
