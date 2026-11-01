@@ -40,6 +40,17 @@ macOS 提示：板子插 hub 可能每几秒闪断，**直插 Mac 本机端口**
 
 见 [kit/include/pins.h](kit/include/pins.h)——所有课程共用这一个事实来源，注释里标了哪些引脚被板载外设占用、哪些（10/11/21/47）可以自由外接。
 
+## 一键刷回小智
+
+折腾完课程想回小智，一条命令（首次自动下载官方 release 并做 SHA256 校验，之后走本地缓存）：
+
+```sh
+./tools/flash-xiaozhi.sh                          # 自动探测串口
+./tools/flash-xiaozhi.sh /dev/cu.usbmodem212301   # 或手动指定
+```
+
+⚠️ merged 镜像从 0x0 全量覆盖，教程 lab 会被清掉（随时可重刷回来）。
+
 ## 致谢
 
 课程结构与部分代码风格源自本地 esp-labs 项目；硬件引脚定义参考 [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32)（Apache-2.0）。

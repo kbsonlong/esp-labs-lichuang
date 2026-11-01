@@ -68,6 +68,15 @@ flowchart LR
 
 ## 第 01 课：认识板子（`labs/01-hello`）
 
+**操作命令**（仓库根目录执行，每课只换 lab 名）：
+
+```sh
+uv sync                                              # 首次一次
+uv run pio run -d labs/01-hello -t upload -t monitor # 编译+烧录+监视
+```
+
+监视器打开后按 **回车** 看身份卡；`Ctrl+C` 退出。端口不对就加 `ESP_PORT=/dev/cu.usbmodemXXXX` 前缀。
+
 **目标**：跑通"写代码 → 编译 → 烧录 → 看日志"的完整闭环；确认硬件是货真价实的 N16R8。
 
 烧录成功后，**在串口监视器里按一下回车**，会打出一张"身份卡"：
@@ -105,6 +114,14 @@ flowchart LR
 
 ## 第 02 课：灯光状态机（`labs/02-led`）
 
+**操作命令**：
+
+```sh
+uv run pio run -d labs/02-led -t upload -t monitor
+```
+
+现象：LED 呼吸，按 BOOT 键切换 彩虹→快闪，串口打 `切换模式 -> xxx`。`Ctrl+C` 退出。
+
 **目标**：写出第一个"产品级结构"的程序——非阻塞 + 状态机。
 
 三种模式循环切换：**呼吸 → 彩虹流动 → 快闪**，按 BOOT 键手动切。
@@ -120,6 +137,14 @@ flowchart LR
 ---
 
 ## 第 03 课：点亮屏幕（`labs/03-display`）
+
+**操作命令**：
+
+```sh
+uv run pio run -d labs/03-display -t upload -t monitor
+```
+
+现象：屏幕亮起 → 彩条 + "Hello, lichuang!" + 运行秒数；串口每秒打 FPS；BOOT 键调背光 4 档。`Ctrl+C` 退出。
 
 **目标**：点亮 2.0" ST7789，理解 SPI 和 RGB565。
 
@@ -147,6 +172,14 @@ CS（片选）在实战派上**直接接地**——屏幕永远被选中，所�
 
 ## 第 04 课：把按键做对（`labs/04-button`）
 
+**操作命令**：
+
+```sh
+uv run pio run -d labs/04-button -t upload -t monitor
+```
+
+现象：短按换 LED 颜色，长按 ≥800ms 切背光，事件实时上屏 + 串口 `按下 #n`。`Ctrl+C` 退出。
+
 **目标**：从"能用"到"做对"：中断 + 消抖 + 长短按。
 
 短按换 LED 颜色；长按（≥800ms）开关背光；屏幕实时滚动事件流。
@@ -163,6 +196,14 @@ CS（片选）在实战派上**直接接地**——屏幕永远被选中，所�
 ---
 
 ## 第 05 课：I2C 总线扫描（`labs/05-i2c-scan`）
+
+**操作命令**：
+
+```sh
+uv run pio run -d labs/05-i2c-scan -t upload -t monitor
+```
+
+现象：每 5 秒一张"I2C 在线设备"表，应见 0x18/0x19/0x38/0x41 中的若干个（缺 0x38 = 该批次无触摸，正常）。`Ctrl+C` 退出。
 
 **目标**：看懂 I2C，第一次"看见"板载外设。
 

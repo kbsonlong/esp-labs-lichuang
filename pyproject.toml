@@ -6,6 +6,8 @@ requires-python = ">=3.12"
 dependencies = [
   # 构建/烧录/监视 CLI。用 `uv run pio ...` 运行，装在本目录的 venv 里，不污染全局。
   "platformio==6.2.0",
+  # 直接刷 merged 固件用（tools/flash-xiaozhi.sh 一键刷回小智）。
+  "esptool==5.6.0",
 ]
 
 [tool.uv]
