@@ -195,6 +195,18 @@ void setup() {
     tft.print("FT6336 not found");
   } else {
     Serial.printf("[FT6336] 在线，TD_STATUS=0x%02X\n", status);
+    // ---- 诊断：芯片身份（FT 系列 0xA8 应答 0x11）+ 固件版本 ----
+    uint8_t id[4] = {0};
+    if (readRegs(0xA8, id, 4)) {
+      Serial.printf("[FT6336] FocalTech_ID(0xA8)=0x%02X Release(0xA9-0xAB)=%02X %02X %02X\n",
+                    id[0], id[1], id[2], id[3]);
+    } else {
+      Serial.println("[FT6336] 身份寄存器读失败");
+    }
+    uint8_t fw[4] = {0};
+    if (readRegs(0xBC, fw, 4)) {
+      Serial.printf("[FT6336] 固件(0xBC-0xBF)=%02X %02X %02X %02X\n", fw[0], fw[1], fw[2], fw[3]);
+    }
   }
 }
 
@@ -223,6 +235,18 @@ void loop() {
     Serial.println("[FT6336] 读失败");
     delay(200);
     return;
+  }
+
+  // ---- 诊断转储（验收后移除）：每 150ms 打印触点寄存器原始值 ----
+  static uint32_t lastDump = 0;
+  if (millis() - lastDump >= 150) {
+    lastDump = millis();
+    uint8_t r[11] = {0};
+    if (readRegs(0x00, r, sizeof(r))) {
+      Serial.printf("[诊断] TD=0x%02X 01-0A=%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %s\n",
+                    r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[0], r[1],
+                    t.pressed ? "按下" : "无");
+    }
   }
 
   if (t.pressed) {

@@ -104,21 +104,48 @@ void es8311Write(uint8_t reg, uint8_t val) {
 }
 
 void es8311Init() {
-  es8311Write(0x00, 0x80);  // UNVERIFIED: 软复位（bit7=1）
-  delay(10);
-  es8311Write(0x00, 0x00);  // UNVERIFIED: 解除复位，时钟走内部
-  es8311Write(0x01, 0x3F);  // UNVERIFIED: 时钟管理，先关分频输出
-  es8311Write(0x02, 0x00);  // UNVERIFIED: 时钟管理：BCLK/MCLK 关系
-  es8311Write(0x03, 0x10);  // UNVERIFIED: ADC 采样率档位（我们只用 DAC，但一并配上）
-  es8311Write(0x04, 0x10);  // UNVERIFIED: DAC 采样率档位，MCLK = 256fs
-  es8311Write(0x0D, 0x01);  // UNVERIFIED: 系统寄存器：时钟/数据路径
-  es8311Write(0x0E, 0x02);  // UNVERIFIED: 系统寄存器：内部参考与偏置
-  es8311Write(0x12, 0x00);  // UNVERIFIED: DAC 输入选择 = I2S 数字输入
-  es8311Write(0x13, 0x10);  // UNVERIFIED: DAC 输出通道配置
-  es8311Write(0x14, 0x0A);  // UNVERIFIED: DAC 模拟段设置
-  es8311Write(0x32, 0xBF);  // UNVERIFIED: DAC 数字音量（ datasheet 里 0xBF ≈ 0dB）
-  es8311Write(0x37, 0x08);  // UNVERIFIED: DAC 解除静音
-  Serial.println("[ES8311] I2C 配置完成（寄存器序列 UNVERIFIED）");
+  // 寄存器序列来源：esp-adf audio_hal 的 es8311 驱动（es8311_codec_init + es8311_start DAC 模式），
+  // 按 16kHz / MCLK=256fs(4.096MHz) 档位展开成具体值（官方驱动运行时查 coeff 表，这里是查表结果）。
+  // 已知坑：ES8311 首次写入可能 NACK（官方 issue AUD-6619），每条写两次保平安。
+  const uint8_t seq[][2] = {
+      {0x00, 0x80},  // RESET: 复位 + I2S 从机模式（bit6=0）
+      {0x00, 0x80},  // （重发一次，规避首写 NACK）
+      {0x01, 0x30},  // CLK_MANAGER: 时钟源初始
+      {0x01, 0x3F},  // CLK_MANAGER: MCLK 来自 MCLK 引脚（bit7=0）
+      {0x02, 0x00},  // CLK_MANAGER: pre-div=1, pre-multi=1（4.096MHz 档）
+      {0x05, 0x00},  // CLK_MANAGER: ADC/DAC 分频 = 1
+      {0x03, 0x10},  // CLK_MANAGER: ADC OSR=0x10
+      {0x04, 0x10},  // CLK_MANAGER: DAC OSR=0x10
+      {0x07, 0x00},  // CLK_MANAGER: LRCK 高字节 = 0（256fs 档）
+      {0x08, 0xFF},  // CLK_MANAGER: LRCK 低字节 = 0xFF
+      {0x06, 0x03},  // CLK_MANAGER: BCLK 分频 = 4（16bit 立体声）
+      {0x0B, 0x00},  // SYSTEM: 未用模拟功能关
+      {0x0C, 0x00},  // SYSTEM: 未用模拟功能关
+      {0x10, 0x1F},  // SYSTEM: DAC 数字音量上限
+      {0x11, 0x7F},  // SYSTEM: ADC 数字音量上限
+      {0x13, 0x10},  // SYSTEM: 数据选择
+      {0x1B, 0x0A},  // ADC: 未用（麦克风路径保守值）
+      {0x1C, 0x6A},  // ADC: 未用（麦克风路径保守值）
+      {0x44, 0x08},  // GPIO: DAC 输出路由
+      // ---- es8311_start(DAC) ----
+      {0x09, 0x00},  // SDP IN: I2S 格式（16bit，标准 PHILIPS）
+      {0x0A, 0x40},  // SDP OUT: ADC 通道关闭（本课只放音）
+      {0x32, 0x00},  // DAC 数字音量 = 最大（反逻辑！0 最响、0xC0≈静音，别写成 0xBF）
+      {0x17, 0xBF},  // ADC 音量 = 0dB（未用）
+      {0x0E, 0x02},  // SYSTEM: DAC 使能
+      {0x12, 0x00},  // SYSTEM: DAC 输入 = I2S
+      {0x14, 0x1A},  // SYSTEM: 模拟段供电 + 非 DMIC
+      {0x0D, 0x01},  // SYSTEM: 输出驱动使能
+      {0x15, 0x40},  // ADC: 未用
+      {0x37, 0x48},  // DAC: 解除静音 + HP 驱动
+      {0x45, 0x00},  // GP: 正常输出
+  };
+  for (const auto &w : seq) {
+    es8311Write(w[0], w[1]);
+    delay(2);
+  }
+  Serial.printf("[ES8311] I2C 初始化完成（%u 条寄存器，序列源自 esp-adf es8311 驱动）\n",
+                static_cast<unsigned>(sizeof(seq) / sizeof(seq[0])));
 }
 
 // ---- 新 I2S API：一个 I2SClass 搞定 ----
